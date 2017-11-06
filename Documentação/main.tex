@@ -134,17 +134,129 @@
 
 	Note que a soma e subtração nos expoentes podem ser feitas com \textit{bit shift}.
 
+	\section{Algoritmo}
+
+	Antes de aplicar Newton-Raphson, definem-se algumas operações que podem ser feitas através do
+	padrão IEEE-754. É importante especificar uma devida precisão. Existem duas formas básicas de fazer isso no método:
+	especificar o número de iterações; especificar o erro relativo a ser tolerado (diferença nos resultados entre as iterações).
+	Por motivos de precisão, escolher-se-á a segunda opção. Assim, define-se:
+	\begin{verbatim}
+		#define EPSILON 1e-20
+	\end{verbatim}
+
+	Em seguida, iniciar-se-á pela definição da função \verb*|doubleToIeee|,
+	converte um valor real de ponto-flutuante na estrutura IEEE-754 definida
+	previamente.
+
+	\begin{verbatim}
+		void doubleToIeee(double valor, int *s, int *exp, double *mant){
+		  *exp = floor(log2(valor));
+		  if(valor < 0){
+		    valor = valor*(-1);
+		    *s = 1;
+		  }else{
+		    *s = 0;
+		  }
+		  *mant = valor/(pow(2, *exp)) - 1.0;
+		}
+	\end{verbatim}
+
+	Deseja-se, neste momento, deseja-se construir uma função que faça o cálculo da raiz
+	quadrada. Para tanto, fazer-se-á uso da técnica de Newton-Raphson, discorrida na Seção
+	\ref{sec:fund_teor}.
+
+	Encontrar a raiz quadrada de um número $A$ significa encontrar a raiz da função $f(x) = x^2 - A$.
+	Nota-se que $f'(x) = 2x$. Deseja-se, também, obter grande precisão. Para tanto, deve-se utilizar
+	um valor reduzido de argumento. Nesse ínterim, uma boa estimativa inicial para o método de Newton-Raphson
+	é a mantissa do valor no padrão IEEE-754, uma vez que a mantissa é sempre maior que zero e menor que $2$.
+
+	Além do chute inicial, o padrão IEEE-754 pode ser utilizado no cálculo sumário do método Newton-Raphson. Isso
+	significa que, em vez de calcular a raiz da função (valor decimal), calcula-se a mantissa da raiz da função.
+	A manipulação do expoente fica a cargo da seguinte lógica: basta dividí-lo por $2$ (raiz quadrada), se for par;
+	caso contrário, incrementa-se o expoente e corrige-se a mantissa (divide-a por $2$) e a normaliza, para então
+	poder dividí-lo.
+
+	Dessa forma, tem-se, seguindo o método de Newton-Raphson, o cálculo da Raiz Quadrada:
+	\begin{verbatim}
+		double raiz_quadrada (double mantissa, int expoente){
+		  if(expoente & 1){
+		    mantissa /= 2.0;
+		    expoente++;
+		  }
+
+		  expoente /= 2;
+		  double xk_1 = mantissa/2.0 + 1.0;
+		  mantissa += 1.0;
+		  double xk = 0, aux;
+
+		  while(fabs(xk_1 - xk) > EPSILON){
+		    xk = xk_1;
+		    xk_1 = xk + (mantissa - xk*xk)/(2*xk);
+		  }
+		  return xk_1;
+		}
+	\end{verbatim}
+
+	Dessa forma, calcula-se a raiz quadrada através do método Newton-Raphson com o padrão IEEE-754
+	com precisão de 19 casas decimais.
+
+	\section{Casos Teste}
+	Testar-se-á a convergência para o cálculo das seguintes raízes:
+	$$A = 25$$\\
+	\begin{verbatim}
+		#1 [xk]: 1.28125000000000000000	[xk+1]: 1.25038109756097570724
+		#2 [xk]: 1.25038109756097570724	[xk+1]: 1.25000005807643410627
+		#3 [xk]: 1.25000005807643410627	[xk+1]: 1.25000000000000133227
+		#4 [xk]: 1.25000000000000133227	[xk+1]: 1.25000000000000000000
+		#5 [xk]: 1.25000000000000000000	[xk+1]: 1.25000000000000000000
+
+		Expoente: 2
+		RAIZ CONVERGIDA: 1.25000000000000000000
+	\end{verbatim}
+	$$A = 81$$\\
+	\begin{verbatim}
+		#1 [xk]: 1.13281250000000000000	[xk+1]: 1.12502693965517241992
+		#2 [xk]: 1.12502693965517241992	[xk+1]: 1.12500000032254554583
+		#3 [xk]: 1.12500000032254554583	[xk+1]: 1.12500000000000000000
+		#4 [xk]: 1.12500000000000000000	[xk+1]: 1.12500000000000000000
+
+		Expoente: 3
+		RAIZ CONVERGIDA: 1.12500000000000000000
+	\end{verbatim}
+	$$A = 5$$\\
+	\begin{verbatim}
+		#1 [xk]: 1.12500000000000000000	[xk+1]: 1.11805555555555558023
+		#2 [xk]: 1.11805555555555558023	[xk+1]: 1.11803398895790206957
+		#3 [xk]: 1.11803398895790206957	[xk+1]: 1.11803398874989490253
+		#4 [xk]: 1.11803398874989490253	[xk+1]: 1.11803398874989490253
+
+		Expoente: 1
+		RAIZ CONVERGIDA: 1.11803398874989490253
+	\end{verbatim}
+
+	A precisão se mantém mesmo para grandes valores de $A$. Isso ocorre porque o cálculo da raiz
+	é executado a partir da mantissa do valor de $A$ no padrão IEEE-754 e encontra a mantissa da raiz.
+
 	\section{Conclusão}
-	$$x_{k+1} = 1.5 - m_{x_k}2^{e_{x_k} - 1} + \frac{m_a}{m_{x_k}}2^{e_a - e_{x_k} + 1}$$
+	Em relação ao algoritmo desenvolvido, fazer-se-á uma análise a partir de cada iteração do método.
+	Nota-se que a quantidade de iterações depende do tempo de convergência em relação à precisão
+	desejada.
 
 	Dessa forma, conclui-se que é possível aplicar Newton-Raphson onde cada iteração necessita de:
 	\begin{itemize}
-		\item 2 subtrações
+		\item 1 comparação
 		\item 1 adição
-		\item 2 bit-shifts
+		\item 2 subtrações
+		\item 2 multiplicações
 		\item 1 divisão
 	\end{itemize}
 
-	Provavelmente é possível executar melhoras nesta técnica, porém, necessita de um estudo mais aprofundado.
+	As operações de pré-processamento não são contabilizadas nesta análise, pois ocorrem somente uma
+	única vez.
+
+	Provavelmente é possível executar melhoras nesta técnica, talvez através do tratamento da mantissa
+	como um número inteiro, para que se possa executar \textit{bit-shift}. Isso substituiria as multiplicações e
+	divisões por $2$. Contudo, a conversão requer aplicação de uma fórmula que pode não compensar o uso do deslocamento de bits.
+	Para tanto, é necessário um estudo mais profundo
 
 \end{document}
