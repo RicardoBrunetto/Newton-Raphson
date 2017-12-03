@@ -1,10 +1,11 @@
+SHELL=cmd.exe
 EXEC=raiz-newton-raphson
 
-all: clear
+all: clear_W
 	@echo "Sucesso!"
 
 compile:
-	@gcc *.c -o $(EXEC) -lm
+	@gcc $(EXEC).c -o $(EXEC) -lm
 
 clear: compile
 	@rm -f *.synctex.gz
@@ -25,4 +26,4 @@ clear_W: compile
 	@del *.bbl 2>NUL
 	@del *.ind 2>NUL
 	@del *.ilg 2>NUL
-	#@start "" $(EXEC).exe
+	@start "" $(EXEC).exe

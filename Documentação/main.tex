@@ -18,7 +18,7 @@
 	\maketitle
 
   \section{Introdução}
-	Deseja-se obter uma maneira de estimar a raiz quadrada com base no método iterativo de Newton-Raphson, que
+	Deseja-se obter uma maneira de estimar a raiz quadrada com base no método iterativo de Newton-Raphson, que realiza a
 	estimativa de raízes de polinômios e equações transcedentais através da expansão da Série de McLaurin-Taylor.
 
 	Tal método permite obter uma precisão específica através de convergência quadrática (se houver).
@@ -101,7 +101,6 @@
 	\label{sec:desenvolvimento}
 
 	Deseja-se, nesta etapa, desenvolver um método para aplicar Newton-Raphson aproveitando-se do padrão IEEE 754 para calcular a raiz quadrada de um número $A$ em base $10$.
-
 	Sabe-se que
 	$$x = \sqrt{A} \implies x^2 = A\\\implies f(x) = x^2 - A = 0$$
 
@@ -111,28 +110,28 @@
 
 	Ao aplicar Newton-Raphson em $f(x)$, tendo $x_k$ como estimativa inicial, tem-se:
 	$$x_{k+1} = x_k - \frac{x_k^2 - A}{2x_k}$$
-	que pode ser reescrito como:
-	$$x_{k+1} = \frac{3x_k - x_k^2 + A}{2x_k}$$
-	$$\equiv x_{k+1} = \frac{3x_k}{2x_k} - \frac{x_k^2}{2x_k} + \frac{A}{2x_k}$$
-	$$\equiv x_{k+1} = \frac{3}{2} - \frac{x_k}{2} + \frac{A}{2x_k}$$
-	$$\equiv x_{k+1} = 1.5 - \frac{x_k}{2} + \frac{A}{2x_k}$$
 
-	Nota-se que $x_k = m_{x_k}2^{e_{x_k}}$ no padrão IEEE 754. Portanto,
+	Percebe-se que o expoente se torna desnecessário para a inclusão no métoodo de Newton-Raphson. Isso porque, matematicamente, tem-se para bases $2$:
+	\[
+	\sqrt{x2^k} =
+	\left\{
+	\begin{array}{ll}
+      \sqrt{x}2^{\frac{k}{2}}, & k\,mod\,2 = 0 \\
+			\sqrt{2x}2^{\frac{k-1}{2}}, & k\,mod\,2 = 1\\
+	\end{array}
+	\right.
+	\]
 
-	$$x_{k+1} = 1.5 - m_{x_k}2^{e_{x_k} - 1} + \frac{A}{m_{x_k}2^{e_{x_k} +1}}$$
-	$$\equiv x_{k+1} = 1.5 - m_{x_k}2^{e_{x_k} - 1} + \frac{m_a2^{e_a}}{m_{x_k}2^{e_{x_k} +1}}$$
-	$$\equiv x_{k+1} = 1.5 - m_{x_k}2^{e_{x_k} - 1} + \frac{m_a}{m_{x_k}}2^{e_a - e_{x_k} + 1}$$
+	Dessa forma, é necessário calcular, inevitavelmente, a raiz da \textbf{mantissa} ($\sqrt{x}$). Portanto,
+	as estimativas devem ter como base o valor da própria mantissa de $A$. Nesse ínterim, o expoente serve meramente
+	para verificar o valor a ser retornado e ajustar os cálculos da estimativa inicial e valor final de retorno.
+	Assim, as iterações do método de Newton-Raphson percorrem na mantissa da estimativa inicial.
 
-	Adotando a extração fracionária do valor da mantissa, tem-se:
-	$$x_{k+1} = 1.5 - m_{x_k}2^{e_{x_k} - 1} + \frac{m_a}{m_{x_k}}2^{e_a - e_{x_k} + 1}$$
+	Tal estimativa inicial é calculada com base na própria mantissa de $A$, sendo:
+	$$x_0 = m_A * 0.5 + 1.0$$
+	Ou seja, a estimativa inicial ($x_0$) consiste na metade do valor da mantissa de $A$ ($m_A$) acrescido do bit escondido.
 
-	Nota-se que $\frac{m_a}{m_{x_k}}$ pode ser escrito como
-	$$\frac{v_f(m_a)}{v_f(m_{x_k})}$$
-
-	Substituindo $x_k$ por $x_i$:
-	$$\frac{v_f(m_a)}{v_f(m_{x_i})} = \frac{\sum_{k=1}^{m}{(M_a)_k2^{-k}}}{\sum_{k=1}^{m}{({M_{x_i})_k2^{-k}}}}$$
-
-	Note que a soma e subtração nos expoentes podem ser feitas com \textit{bit shift}.
+	Essa estimativa, em geral, corresponde a uma conversão mais apurada (em menos iterações) para o valor da raiz.
 
 	\section{Algoritmo}
 
@@ -140,26 +139,33 @@
 	padrão IEEE-754. É importante especificar uma devida precisão. Existem duas formas básicas de fazer isso no método:
 	especificar o número de iterações; especificar o erro relativo a ser tolerado (diferença nos resultados entre as iterações).
 	Por motivos de precisão, escolher-se-á a segunda opção. Assim, define-se:
-	\begin{verbatim}
-		#define EPSILON 1e-20
-	\end{verbatim}
+	\begin{Verbatim}[fontsize=\footnotesize]
+#define EPSILON 1e-20
+	\end{Verbatim}
 
 	Em seguida, iniciar-se-á pela definição da função \verb*|doubleToIeee|,
 	converte um valor real de ponto-flutuante na estrutura IEEE-754 definida
 	previamente.
 
-	\begin{verbatim}
-		void doubleToIeee(double valor, int *s, int *exp, double *mant){
-		  *exp = floor(log2(valor));
-		  if(valor < 0){
-		    valor = valor*(-1);
-		    *s = 1;
-		  }else{
-		    *s = 0;
-		  }
-		  *mant = valor/(pow(2, *exp)) - 1.0;
-		}
-	\end{verbatim}
+	\begin{Verbatim}[fontsize=\footnotesize]
+void doubleToIeee(double valor, int *s, int *exp, double *mant){
+  *exp = floor(log2(valor));
+  if(valor < 0){
+    valor = valor*(-1);
+    *s = 1;
+  }else{
+    *s = 0;
+  }
+  *mant = valor/(pow(2, *exp)) - 1.0;
+}
+	\end{Verbatim}
+
+	Com objetivo oposto, defini-se a função \verb*|ieeeToDouble|:
+	\begin{Verbatim}[fontsize=\footnotesize]
+double ieeeToDouble(double mantissa, int expoente, int sinal){
+  return (mantissa * pow(-1, sinal) * pow(2, expoente));
+}
+	\end{Verbatim}
 
 	Deseja-se, neste momento, deseja-se construir uma função que faça o cálculo da raiz
 	quadrada. Para tanto, fazer-se-á uso da técnica de Newton-Raphson, discorrida na Seção
@@ -172,70 +178,105 @@
 
 	Além do chute inicial, o padrão IEEE-754 pode ser utilizado no cálculo sumário do método Newton-Raphson. Isso
 	significa que, em vez de calcular a raiz da função (valor decimal), calcula-se a mantissa da raiz da função.
-	A manipulação do expoente fica a cargo da seguinte lógica: basta dividí-lo por $2$ (raiz quadrada), se for par;
-	caso contrário, incrementa-se o expoente e corrige-se a mantissa (divide-a por $2$) e a normaliza, para então
-	poder dividí-lo.
+	A manipulação da mantissa fica a cargo da seguinte lógica: basta dividí-lo por $2$ (raiz quadrada), se for par;
+	caso contrário, decrementa-se o expoente e corrige-se a mantissa na devolução do resultado (multiplicando-a por $\sqrt{2}$).
 
 	Dessa forma, tem-se, seguindo o método de Newton-Raphson, o cálculo da Raiz Quadrada:
-	\begin{verbatim}
-		double raiz_quadrada (double mantissa, int expoente){
-		  if(expoente & 1){
-		    mantissa /= 2.0;
-		    expoente++;
-		  }
-
-		  expoente /= 2;
-		  double xk_1 = mantissa/2.0 + 1.0;
-		  mantissa += 1.0;
-		  double xk = 0, aux;
-
-		  while(fabs(xk_1 - xk) > EPSILON){
-		    xk = xk_1;
-		    xk_1 = xk + (mantissa - xk*xk)/(2*xk);
-		  }
-		  return xk_1;
-		}
-	\end{verbatim}
+	\begin{Verbatim}[fontsize=\footnotesize]
+double raiz_quadrada (double mantissa, int expoente){
+  int isImpar = 0, k = 1;
+  if(*expoente & 1){
+    isImpar = 1;
+    expoente--;
+  }
+  expoente *= 0.5;
+  double xk_1 = mantissa * 0.5 + 1.0;
+  mantissa += 1.0;
+  double xk = 0, aux;
+  do{
+    xk = xk_1;
+    xk_1 = xk - (((xk*xk - mantissa)/xk)*0.5);
+  }while((fabs(xk_1 - xk) > EPSILON));
+  if(isImpar) return (xk_1 * 1.41421356237309504880168872420969807);
+  return xk_1;
+}
+	\end{Verbatim}
+	onde $1.41421356237309504880168872420969807 = \sqrt{2}$.
 
 	Dessa forma, calcula-se a raiz quadrada através do método Newton-Raphson com o padrão IEEE-754
-	com precisão de 19 casas decimais.
+	com precisão absoluta de 19 casas decimais e dúvida na vigésima casa.
 
 	\section{Casos Teste}
 	Testar-se-á a convergência para o cálculo das seguintes raízes:
-	$$A = 25$$\\
-	\begin{verbatim}
-		#1 [xk]: 1.28125000000000000000	[xk+1]: 1.25038109756097570724
-		#2 [xk]: 1.25038109756097570724	[xk+1]: 1.25000005807643410627
-		#3 [xk]: 1.25000005807643410627	[xk+1]: 1.25000000000000133227
-		#4 [xk]: 1.25000000000000133227	[xk+1]: 1.25000000000000000000
-		#5 [xk]: 1.25000000000000000000	[xk+1]: 1.25000000000000000000
+	$$A = 36$$
+	\begin{Verbatim}[fontsize=\footnotesize]
+Expoente: 2
+#1      [xk]: 1.06250000000000000000    [xk+1]: 1.06066176470588220000
+#2      [xk]: 1.06066176470588220000    [xk+1]: 1.06066017178101730000
+#3      [xk]: 1.06066017178101730000    [xk+1]: 1.06066017177982120000
+#4      [xk]: 1.06066017177982120000    [xk+1]: 1.06066017177982120000
 
-		Expoente: 2
-		RAIZ CONVERGIDA: 1.25000000000000000000
-	\end{verbatim}
-	$$A = 81$$\\
-	\begin{verbatim}
-		#1 [xk]: 1.13281250000000000000	[xk+1]: 1.12502693965517241992
-		#2 [xk]: 1.12502693965517241992	[xk+1]: 1.12500000032254554583
-		#3 [xk]: 1.12500000032254554583	[xk+1]: 1.12500000000000000000
-		#4 [xk]: 1.12500000000000000000	[xk+1]: 1.12500000000000000000
+RAIZ CONVERGIDA: 1.50000000000000000000 VALOR DECIMAL: 6.00000000000000000000
+	\end{Verbatim}
+	$$A = 2.58$$
+	\begin{Verbatim}[fontsize=\footnotesize]
+Expoente: 0
+#1      [xk]: 1.14500000000000000000    [xk+1]: 1.13581877729257650000
+#2      [xk]: 1.13581877729257650000    [xk+1]: 1.13578166976623130000
+#3      [xk]: 1.13578166976623130000    [xk+1]: 1.13578166916005460000
+#4      [xk]: 1.13578166916005460000    [xk+1]: 1.13578166916005460000
 
-		Expoente: 3
-		RAIZ CONVERGIDA: 1.12500000000000000000
-	\end{verbatim}
-	$$A = 5$$\\
-	\begin{verbatim}
-		#1 [xk]: 1.12500000000000000000	[xk+1]: 1.11805555555555558023
-		#2 [xk]: 1.11805555555555558023	[xk+1]: 1.11803398895790206957
-		#3 [xk]: 1.11803398895790206957	[xk+1]: 1.11803398874989490253
-		#4 [xk]: 1.11803398874989490253	[xk+1]: 1.11803398874989490253
+RAIZ CONVERGIDA: 1.60623784042090100000 VALOR DECIMAL: 1.60623784042090100000
+	\end{Verbatim}
+	$$A = 3.625$$
+	\begin{Verbatim}[fontsize=\footnotesize]
+Expoente: 0
+#1      [xk]: 1.40625000000000000000    [xk+1]: 1.34756944444444440000
+#2      [xk]: 1.34756944444444440000    [xk+1]: 1.34629180802485050000
+#3      [xk]: 1.34629180802485050000    [xk+1]: 1.34629120178376250000
+#4      [xk]: 1.34629120178376250000    [xk+1]: 1.34629120178362590000
+#5      [xk]: 1.34629120178362590000    [xk+1]: 1.34629120178362590000
 
-		Expoente: 1
-		RAIZ CONVERGIDA: 1.11803398874989490253
-	\end{verbatim}
+RAIZ CONVERGIDA: 1.90394327646597720000 VALOR DECIMAL: 1.90394327646597720000
+	\end{Verbatim}
+	$$A = 27$$
+	\begin{Verbatim}[fontsize=\footnotesize]
+Expoente: 2
+#1      [xk]: 1.34375000000000000000    [xk+1]: 1.29978197674418610000
+#2      [xk]: 1.29978197674418610000    [xk+1]: 1.29903831853703580000
+#3      [xk]: 1.29903831853703580000    [xk+1]: 1.29903810567667530000
+#4      [xk]: 1.29903810567667530000    [xk+1]: 1.29903810567665800000
+#5      [xk]: 1.29903810567665800000    [xk+1]: 1.29903810567665800000
 
-	A precisão se mantém mesmo para grandes valores de $A$. Isso ocorre porque o cálculo da raiz
+RAIZ CONVERGIDA: 1.29903810567665800000 VALOR DECIMAL: 5.19615242270663200000
+	\end{Verbatim}
+	$$A = 15874$$
+	\begin{Verbatim}[fontsize=\footnotesize]
+Expoente: 6
+#1      [xk]: 1.46887207031250000000    [xk+1]: 1.39403879423544890000
+#2      [xk]: 1.39403879423544890000    [xk+1]: 1.39203023492146820000
+#3      [xk]: 1.39203023492146820000    [xk+1]: 1.39202878584715340000
+#4      [xk]: 1.39202878584715340000    [xk+1]: 1.39202878584639910000
+#5      [xk]: 1.39202878584639910000    [xk+1]: 1.39202878584639910000
+
+RAIZ CONVERGIDA: 1.96862598815773040000 VALOR DECIMAL: 125.99206324209474000000
+	\end{Verbatim}
+	$$A = 6.023e23$$
+	\begin{Verbatim}[fontsize=\footnotesize]
+Expoente: 39
+#1      [xk]: 1.49642176588137720000    [xk+1]: 1.41408048508089460000
+#2      [xk]: 1.41408048508089460000    [xk+1]: 1.41168313691175000000
+#3      [xk]: 1.41168313691175000000    [xk+1]: 1.41168110129975810000
+#4      [xk]: 1.41168110129975810000    [xk+1]: 1.41168110129829040000
+#5      [xk]: 1.41168110129829040000    [xk+1]: 1.41168110129829040000
+
+RAIZ CONVERGIDA: 1.41168110129829040000 VALOR DECIMAL: 776079892794.54980000000000000000
+	\end{Verbatim}
+
+	A precisão se mantém estável para valores pequenos de $A$. Isso ocorre porque o cálculo da raiz
 	é executado a partir da mantissa do valor de $A$ no padrão IEEE-754 e encontra a mantissa da raiz.
+	No caso de valores grandes, a mantissa também é definida com precisão, porém o valor decimal final é comprometido
+	visto que boa parte da mantissa representa os números da parte inteira, como é o último caso teste, da Constante de Avogadro.
 
 	\section{Conclusão}
 	Em relação ao algoritmo desenvolvido, fazer-se-á uma análise a partir de cada iteração do método.
@@ -245,18 +286,18 @@
 	Dessa forma, conclui-se que é possível aplicar Newton-Raphson onde cada iteração necessita de:
 	\begin{itemize}
 		\item 1 comparação
-		\item 1 adição
-		\item 2 subtrações
+		\item 3 subtrações
 		\item 2 multiplicações
 		\item 1 divisão
 	\end{itemize}
 
-	As operações de pré-processamento não são contabilizadas nesta análise, pois ocorrem somente uma
-	única vez.
+	As operações de pré-processamento e pós-processamento não são contabilizadas nesta análise, pois ocorrem somente uma
+	única vez e não interferem significativamente na precisão. Além disso, as operações que envolvem divisão por $2$ (multiplicação por $0.5$) ou multiplicação por $2$
+	podem ser feitas pela máquina através de \textit{bit-shift}.
 
 	Provavelmente é possível executar melhoras nesta técnica, talvez através do tratamento da mantissa
 	como um número inteiro, para que se possa executar \textit{bit-shift}. Isso substituiria as multiplicações e
-	divisões por $2$. Contudo, a conversão requer aplicação de uma fórmula que pode não compensar o uso do deslocamento de bits.
-	Para tanto, é necessário um estudo mais profundo
+	divisões por $2$. Contudo, para aplicação em software, a conversão requer aplicação de uma fórmula que pode não compensar o uso do deslocamento de bits.
+	Para tanto, é necessário um estudo mais profundo.
 
 \end{document}
