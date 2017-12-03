@@ -21,7 +21,7 @@ NOV/2017
 #include <stdlib.h>
 #include <math.h>
 
-#define EPSILON 1e-15
+#define EPSILON 1e-20
 
 void doubleToIeee(double valor, int *sinal, int *expoente, double *mantissa){
   *expoente = floor(log2(valor));
