@@ -1,4 +1,4 @@
-# Título do Trabalho
+# Cálculo da raiz quadrada através do Método de Newton-Raphson com padrão IEEE-754 em C
 Este trabalho foi desenvolvido para a disciplina de Matemática Computacional (Ciência da Computação - UEM) em Dezembro/2017 por Ricardo Henrique Brunetto (ra94182@uem.br)
 
 ## Descrição
