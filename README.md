@@ -1,5 +1,5 @@
 # Título do Trabalho
-Este trabalho foi desenvolvido para a disciplina de Matemática Computacional (Ciência da Computação - UEM) em  por Ricardo Henrique Brunetto (ra94182@uem.br)
+Este trabalho foi desenvolvido para a disciplina de Matemática Computacional (Ciência da Computação - UEM) em Dezembro/2017 por Ricardo Henrique Brunetto (ra94182@uem.br)
 
 ## Descrição
 O programa calcula a raiz quadrada de um número real através do método de Newton-Raphson com decomposição no padrão IEEE-754 para ponto-flutuante.
